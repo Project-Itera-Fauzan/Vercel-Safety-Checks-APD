@@ -186,11 +186,44 @@ function CameraView({
         throw new Error("Gagal mengambil gambar dari kamera.");
       }
 
-      // Simpan snapshot gambar yang baru saja diambil (untuk freeze frame & riwayat)
-      const dataUrl = canvasRef.current?.toDataURL("image/jpeg", 0.85) ?? undefined;
-      setCapturedImage(dataUrl ?? null);
-
       const response = await predictImage(blob);
+
+      // Gambar kotak deteksi di atas foto yang baru diambil
+      const canvas = canvasRef.current;
+      const BOX_COLORS: Record<string, string> = {
+        "Safety Helmet": "#22c55e",
+        "Safety Vest": "#eab308",
+        "Safety Boot": "#3b82f6",
+      };
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.lineWidth = Math.max(2, canvas.width / 250);
+          ctx.font = `${Math.max(14, Math.round(canvas.width / 45))}px sans-serif`;
+          ctx.textBaseline = "top";
+
+          for (const det of response.detections) {
+            const [x1, y1, x2, y2] = det.box_xyxy;
+            const color = BOX_COLORS[det.class_name] ?? "#f43f5e";
+            const label = `${det.class_name} ${Math.round(det.confidence * 100)}%`;
+
+            ctx.strokeStyle = color;
+            ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+            const textWidth = ctx.measureText(label).width;
+            const labelH = Math.max(18, Math.round(canvas.width / 45) + 6);
+            const labelY = Math.max(0, y1 - labelH);
+            ctx.fillStyle = color;
+            ctx.fillRect(x1, labelY, textWidth + 8, labelH);
+            ctx.fillStyle = "#0a0a0a";
+            ctx.fillText(label, x1 + 4, labelY + 2);
+          }
+        }
+      }
+
+      // Simpan snapshot gambar (dengan kotak deteksi) untuk freeze frame & riwayat
+      const dataUrl = canvas?.toDataURL("image/jpeg", 0.85) ?? undefined;
+      setCapturedImage(dataUrl ?? null);
 
       const result: DetectionResult = { helmet: false, vest: false, shoes: false };
       const confidences: Record<ApdItem, number> = { helmet: 0, vest: 0, shoes: 0 };
