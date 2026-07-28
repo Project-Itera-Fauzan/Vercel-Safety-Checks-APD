@@ -898,14 +898,22 @@ function HistoryView() {
       {/* Lightbox foto */}
       {preview && (
         <div
-          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6"
+          className="fixed inset-0 z-[100] bg-black/85 flex items-center justify-center p-4"
           onClick={() => setPreview(null)}
         >
           <img
             src={preview}
             alt="Preview foto"
-            className="max-w-full max-h-full rounded-xl border border-[#1a4030]"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full h-full max-w-5xl max-h-[92vh] object-contain rounded-xl border border-[#1a4030]"
           />
+          <button
+            onClick={() => setPreview(null)}
+            aria-label="Tutup"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 w-9 h-9 flex items-center justify-center rounded-full bg-black/60 text-white text-xl hover:bg-black/80"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>
