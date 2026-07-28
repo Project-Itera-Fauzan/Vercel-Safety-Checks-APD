@@ -39,20 +39,15 @@ interface DetectionResult {
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const TECHNICIANS = [
-  { id: "T001", name: "Rayhan" },
-  { id: "T002", name: "Agung" },
-  { id: "T003", name: "Zulius" },
-  { id: "T004", name: "Gilang" },
   { id: "T001", name: "Wempy" },
-  { id: "T002", name: "Imam },
+  { id: "T002", name: "Imam" },
   { id: "T003", name: "Jovi" },
   { id: "T004", name: "Hanif" },
-  { id: "T004", name: "Fanni" },
-  { id: "T001", name: "Firda" },
-  { id: "T002", name: "Dianing},
-  { id: "T003", name: "Ary" },
-  { id: "T004", name: "Syahrul" },
-
+  { id: "T005", name: "Fanni" },
+  { id: "T006", name: "Firda" },
+  { id: "T007", name: "Dianing" },
+  { id: "T008", name: "Ary" },
+  { id: "T009", name: "Syahrul" },
 ];
 
 
@@ -174,7 +169,7 @@ function CameraView({
 
   const startScan = useCallback(async () => {
     if (!techId) {
-      alert("Pilih Anggota Tim terlebih dahulu.");
+      alert("Pilih Anggota terlebih dahulu.");
       return;
     }
     if (!location.trim()) {
@@ -243,7 +238,7 @@ function CameraView({
           disabled={status !== "idle"}
           className="w-full bg-[#0d2218] border border-[#1a4030] text-[#e8f0f5] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50"
         >
-          <option value=""> Pilih Anggota Tim </option>
+          <option value="">-- Pilih Anggota --</option>
           {TECHNICIANS.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
