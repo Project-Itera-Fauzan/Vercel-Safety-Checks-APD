@@ -43,6 +43,16 @@ const TECHNICIANS = [
   { id: "T002", name: "Agung" },
   { id: "T003", name: "Zulius" },
   { id: "T004", name: "Gilang" },
+  { id: "T001", name: "Wempy" },
+  { id: "T002", name: "Imam },
+  { id: "T003", name: "Jovi" },
+  { id: "T004", name: "Hanif" },
+  { id: "T004", name: "Fanni" },
+  { id: "T001", name: "Firda" },
+  { id: "T002", name: "Dianing},
+  { id: "T003", name: "Ary" },
+  { id: "T004", name: "Syahrul" },
+
 ];
 
 
@@ -233,7 +243,7 @@ function CameraView({
           disabled={status !== "idle"}
           className="w-full bg-[#0d2218] border border-[#1a4030] text-[#e8f0f5] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50"
         >
-          <option value="">-- Pilih Anggota Tim --</option>
+          <option value=""> Pilih Anggota Tim </option>
           {TECHNICIANS.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
