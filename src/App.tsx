@@ -89,19 +89,23 @@ function NetworkBadge() {
 
 function CameraView({
   onDetect,
+  onReset,
 }: {
   onDetect: (
     result: DetectionResult,
     confidences: Record<ApdItem, number>,
     techName: string,
     location: string,
+    image?: string,
   ) => void;
+  onReset: () => void;
 }) {
   const [status, setStatus] = useState<ApdStatus>("idle");
   const [techId, setTechId] = useState("");
   const [location, setLocation] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -177,6 +181,10 @@ function CameraView({
         throw new Error("Gagal mengambil gambar dari kamera.");
       }
 
+      // Simpan snapshot gambar yang baru saja diambil (untuk freeze frame & riwayat)
+      const dataUrl = canvasRef.current?.toDataURL("image/jpeg", 0.85) ?? undefined;
+      setCapturedImage(dataUrl ?? null);
+
       const response = await predictImage(blob);
 
       const result: DetectionResult = { helmet: false, vest: false, shoes: false };
@@ -198,7 +206,7 @@ function CameraView({
 
       const techName = TECHNICIANS.find((t) => t.id === techId)?.name ?? techId;
       setStatus("done");
-      onDetect(result, confidences, techName, location.trim());
+      onDetect(result, confidences, techName, location.trim(), dataUrl);
     } catch (err) {
       setScanError(err instanceof Error ? err.message : "Gagal memproses deteksi. Coba lagi.");
       setStatus("idle");
@@ -208,8 +216,9 @@ function CameraView({
   const reset = useCallback(() => {
     setStatus("idle");
     setScanError(null);
-    onDetect({ helmet: false, vest: false, shoes: false }, { helmet: 0, vest: 0, shoes: 0 }, "", "");
-  }, [onDetect]);
+    setCapturedImage(null);
+    onReset();
+  }, [onReset]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -258,6 +267,14 @@ function CameraView({
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         />
+        {/* Freeze frame: foto hasil capture, menutupi video selama status "done" */}
+        {status === "done" && capturedImage && (
+          <img
+            src={capturedImage}
+            alt="Hasil capture"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
         <canvas ref={canvasRef} className="hidden" />
 
         {cameraError && (
@@ -520,17 +537,19 @@ function ApdChecklist({
       {/* Approval button */}
       <button
         onClick={onApprove}
-        disabled={!allDetected || !canApprove}
+        disabled={!canApprove}
         className={`mt-2 w-full py-4 rounded-xl font-bold text-sm tracking-widest transition-all active:scale-95
-          ${allDetected && canApprove
-            ? "bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
+          ${canApprove
+            ? allDetected
+              ? "bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
+              : "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20"
             : "bg-[#0d2218] text-[#1a4030] border border-[#1a4030] cursor-not-allowed"
           }`}
       >
         {allDetected && canApprove
           ? "✔ BERIKAN IZIN KEBERANGKATAN"
           : canApprove && !allDetected
-          ? "⚠ APD TIDAK LENGKAP — IZIN DITOLAK"
+          ? "⚠ APD TIDAK LENGKAP — KIRIM SEBAGAI DITOLAK"
           : "Lakukan Pengecekan Terlebih Dahulu"}
       </button>
     </div>
@@ -687,6 +706,7 @@ function HistoryView() {
   const [entries, setEntries] = useState<ChecklistSaved[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -759,7 +779,7 @@ function HistoryView() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#1a4030]">
-                {["ID", "Waktu", "Teknisi", "Lokasi", "APD", "Status"].map((h) => (
+                {["ID", "Waktu", "Teknisi", "Lokasi", "Foto", "APD", "Status"].map((h) => (
                   <th
                     key={h}
                     className="text-left px-4 py-3 text-[10px] font-mono uppercase tracking-widest text-[#4a9070]"
@@ -786,6 +806,23 @@ function HistoryView() {
                   </td>
                   <td className="px-4 py-3 text-sm text-[#e8f0f5]">{entry.technician}</td>
                   <td className="px-4 py-3 text-xs text-[#4a9070] whitespace-nowrap">{entry.location}</td>
+                  <td className="px-4 py-3">
+                    {entry.image ? (
+                      <button
+                        onClick={() => setPreview(entry.image!)}
+                        className="block w-11 h-11 rounded-lg overflow-hidden border border-[#1a4030] hover:border-emerald-500 transition-colors"
+                        title="Lihat foto"
+                      >
+                        <img
+                          src={entry.image}
+                          alt={`Foto ${entry.id}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ) : (
+                      <span className="text-xs font-mono text-[#1a4030]">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1.5 flex-wrap">
                       {APD_ITEMS.map(({ key, icon }) => (
@@ -819,6 +856,20 @@ function HistoryView() {
           {filtered.length} dari {entries.length} entri{entries.length === 0 && " (belum ada riwayat)"}
         </div>
       </div>
+
+      {/* Lightbox foto */}
+      {preview && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6"
+          onClick={() => setPreview(null)}
+        >
+          <img
+            src={preview}
+            alt="Preview foto"
+            className="max-w-full max-h-full rounded-xl border border-[#1a4030]"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -841,23 +892,43 @@ export default function App() {
   });
   const [lastTech, setLastTech] = useState("");
   const [lastLocation, setLastLocation] = useState("");
+  const [lastImage, setLastImage] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
   const handleDetect = useCallback(
-    (result: DetectionResult, conf: Record<ApdItem, number>, techName: string, location: string) => {
-      const isEmpty = !result.helmet && !result.vest && !result.shoes;
+    (
+      result: DetectionResult,
+      conf: Record<ApdItem, number>,
+      techName: string,
+      location: string,
+      image?: string,
+    ) => {
+      // Dipanggil hanya saat scan sungguhan selesai (lihat CameraView.startScan),
+      // jadi hasScanned selalu true di sini — termasuk saat tidak ada APD yang
+      // terdeteksi sama sekali, supaya tetap bisa dikirim sebagai "DITOLAK".
       setDetection(result);
       setConfidences(conf);
       setLastTech(techName);
       setLastLocation(location);
-      setHasScanned(!isEmpty);
+      setLastImage(image);
+      setHasScanned(true);
     },
     [],
   );
 
+  const handleReset = useCallback(() => {
+    setDetection({ helmet: false, vest: false, shoes: false });
+    setConfidences({ helmet: 0, vest: 0, shoes: 0 });
+    setLastTech("");
+    setLastLocation("");
+    setLastImage(undefined);
+    setHasScanned(false);
+  }, []);
+
   const handleApprove = useCallback(async () => {
     setSaving(true);
     try {
+      const isComplete = detection.helmet && detection.vest && detection.shoes;
       await saveChecklist({
         technician: lastTech,
         location: lastLocation,
@@ -867,9 +938,14 @@ export default function App() {
         conf_helmet: confidences.helmet,
         conf_vest: confidences.vest,
         conf_shoes: confidences.shoes,
+        image: lastImage,
       });
-      setApprovedCount((c) => c + 1);
-      alert("✅ Izin Keberangkatan Diberikan!\n\nData telah dicatat ke sistem.");
+      setApprovedCount((c) => c + (isComplete ? 1 : 0));
+      if (isComplete) {
+        alert("✅ Izin Keberangkatan Diberikan!\n\nData telah dicatat ke sistem.");
+      } else {
+        alert("⛔ Izin Ditolak — APD tidak lengkap.\n\nData tetap dicatat ke sistem sebagai penolakan.");
+      }
     } catch (err) {
       alert(
         `⚠️ Data gagal disimpan ke server (${err instanceof Error ? err.message : "unknown error"}).\nCek koneksi backend/Railway.`,
@@ -878,9 +954,10 @@ export default function App() {
       setSaving(false);
       setDetection({ helmet: false, vest: false, shoes: false });
       setConfidences({ helmet: 0, vest: 0, shoes: 0 });
+      setLastImage(undefined);
       setHasScanned(false);
     }
-  }, [detection, confidences, lastTech, lastLocation]);
+  }, [detection, confidences, lastTech, lastLocation, lastImage]);
 
   const navItems: { id: View; label: string; icon: string }[] = [
     { id: "check", label: "Cek APD", icon: "🔍" },
@@ -975,7 +1052,7 @@ export default function App() {
                   Kamera Pengecekan
                 </h2>
               </div>
-              <CameraView onDetect={handleDetect} />
+              <CameraView onDetect={handleDetect} onReset={handleReset} />
             </div>
 
             {/* Checklist column */}
