@@ -39,6 +39,7 @@ export interface ChecklistPayload {
   conf_helmet: number;
   conf_vest: number;
   conf_shoes: number;
+  image?: string;
 }
 
 export interface ChecklistSaved {
@@ -49,6 +50,7 @@ export interface ChecklistSaved {
   result: { helmet: boolean; vest: boolean; shoes: boolean };
   confidences: { helmet: number; vest: number; shoes: number };
   approved: boolean;
+  image?: string | null;
 }
 
 export async function saveChecklist(payload: ChecklistPayload): Promise<ChecklistSaved> {
