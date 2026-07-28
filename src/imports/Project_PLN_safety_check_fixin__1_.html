@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Check APD - PLN Icon Plus</title>
+    <style>
+        /* Palet Warna PLN Icon Plus */
+        :root {
+            --pln-yellow: #FFF200;
+            --pln-blue: #00A2E9;
+            --pln-dark-teal: #1D5A73;
+            --pln-red: #ED1C24;
+            --bg-color: #f4f7f6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: #333; }
+
+        /* Navbar */
+        header {
+            background-color: white; padding: 15px 30px; display: flex;
+            justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-bottom: 4px solid var(--pln-blue);
+        }
+        .logo-container { display: flex; align-items: center; gap: 15px; }
+        .logo-container img { height: 50px; }
+        .header-title { color: var(--pln-dark-teal); font-size: 1.5rem; font-weight: bold; }
+
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        
+        /* Tombol Rahasia Dev Mode */
+        .btn-dev-toggle {
+            background: none; border: none; font-size: 1.5rem; cursor: pointer;
+            opacity: 0.5; transition: 0.3s;
+        }
+        .btn-dev-toggle:hover { opacity: 1; }
+
+        /* Indikator Jaringan */
+        .network-indicator {
+            display: flex; align-items: center; gap: 8px; font-weight: bold;
+            padding: 8px 15px; border-radius: 20px; background-color: #f0f0f0;
+        }
+        .status-dot { height: 12px; width: 12px; border-radius: 50%; }
+        .online .status-dot { background-color: #4CAF50; box-shadow: 0 0 5px #4CAF50;}
+        .online { color: #4CAF50; }
+        .offline .status-dot { background-color: var(--pln-red); box-shadow: 0 0 5px var(--pln-red);}
+        .offline { color: var(--pln-red); }
+
+        /* Layout Utama */
+        .container {
+            display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px;
+            padding: 30px; max-width: 1400px; margin: 0 auto;
+        }
+
+        .card {
+            background: white; border-radius: 10px; padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        h2, h3 { color: var(--pln-dark-teal); margin-bottom: 15px; }
+        .camera-title { border-left: 4px solid var(--pln-yellow); padding-left: 10px; }
+
+        /* Area Kamera & Hasil Foto */
+        .media-container {
+            position: relative; width: 100%; background: #000;
+            border-radius: 8px; overflow: hidden; aspect-ratio: 4/3;
+        }
+        video, canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+        canvas { position: absolute; top: 0; left: 0; display: none; }
+
+        /* Tombol Kontrol Kamera */
+        .camera-controls { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-capture, .btn-retake {
+            flex: 1; padding: 15px; border: none; border-radius: 5px; font-weight: bold;
+            font-size: 1.1rem; cursor: pointer; transition: 0.3s;
+        }
+        .btn-capture { background-color: var(--pln-yellow); color: var(--pln-dark-teal); }
+        .btn-capture:hover { background-color: #e6da00; }
+        .btn-retake { background-color: #ccc; color: #333; display: none; }
+        .btn-retake:hover { background-color: #bbb; }
+
+        /* Form & Checklist */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: var(--pln-dark-teal); }
+        select, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; }
+
+        .check-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px; border: 1px solid #eee; margin-bottom: 10px;
+            border-radius: 5px; background: #fafafa; transition: 0.3s;
+        }
+        .check-item.detected { background-color: #e8f5e9; border-color: #4CAF50; }
+        .status-badge {
+            padding: 5px 10px; border-radius: 12px; font-size: 0.8rem;
+            font-weight: bold; background: #ffebee; color: var(--pln-red);
+        }
+        .check-item.detected .status-badge { background: #c8e6c9; color: #2e7d32; }
+
+        .btn-submit {
+            width: 100%; padding: 15px; background-color: var(--pln-blue);
+            color: white; border: none; border-radius: 5px; font-size: 1.1rem;
+            font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.3s;
+        }
+        .btn-submit:hover { background-color: var(--pln-dark-teal); }
+        .btn-submit:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        .loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); color: white; display: none;
+            justify-content: center; align-items: center; font-size: 1.2rem; font-weight: bold;
+            flex-direction: column; z-index: 20;
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid var(--pln-yellow);
+            border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* =========================================
+           PANEL DEVELOPER (DATA TRAINING)
+           ========================================= */
+        .dev-panel {
+            grid-column: 1 / -1; /* Membentang penuh */
+            background: #2c3e50;
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 10px;
+            display: none; /* Disembunyikan secara default */
+            border-left: 5px solid var(--pln-yellow);
+        }
+        .dev-panel h3 { color: var(--pln-yellow); margin-bottom: 10px; }
+        .dev-panel label { color: #ecf0f1; }
+        .dev-form-grid {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: end;
+        }
+        .btn-upload-dev {
+            background-color: #27ae60; color: white; padding: 12px; border: none;
+            border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1rem;
+        }
+        .btn-upload-dev:hover { background-color: #219653; }
+        .file-info { margin-top: 10px; font-size: 0.9rem; color: #bdc3c7; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <img src="logo (1).png" alt="PLN Icon Plus Logo">
+            <div class="header-title">Sistem Pengecekan APD Terpadu</div>
+        </div>
+        <div class="header-right">
+            <!-- Tombol Rahasia untuk mengaktifkan kolom upload training -->
+            <button class="btn-dev-toggle" id="btn-dev" title="Developer Mode">⚙️</button>
+            <div id="network-indicator" class="network-indicator online">
+                <div class="status-dot"></div>
+                <span id="network-text">Online</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <!-- PANEL KHUSUS DEVELOPER (TRAINING DATA) -->
+        <div class="dev-panel" id="dev-panel">
+            <h3>🛠️ Developer Mode: Pengumpulan Data Training</h3>
+            <p style="margin-bottom: 15px; font-size: 0.9rem;">Gunakan kolom ini untuk mengunggah foto dataset baru guna melatih (retrain) model YOLOv8 / Machine Learning.</p>
+            
+            <div class="dev-form-grid">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="dev-label">Pilih Label (Class):</label>
+                    <select id="dev-label">
+                        <option value="helm">Helm Safety</option>
+                        <option value="rompi">Rompi / Vest</option>
+                        <option value="sepatu">Sepatu Boots</option>
+                        <option value="lanyard">Lanyard / Harness</option>
+                        <option value="negative">Background (Negatif/Tanpa APD)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="dev-files">Pilih Foto (Bisa lebih dari satu):</label>
+                    <input type="file" id="dev-files" accept="image/*" multiple>
+                </div>
+                <div>
+                    <button class="btn-upload-dev" id="btn-upload-dev">📤 Unggah ke Dataset Server</button>
+                </div>
+            </div>
+            <div class="file-info" id="file-info">Belum ada file dipilih.</div>
+        </div>
+
+        <!-- Area Kamera Utama -->
+        <div class="card">
+            <h2 class="camera-title">Kamera Pengecekan</h2>
+            <div class="media-container">
+                <video id="webcam" autoplay playsinline></video>
+                <canvas id="snapshot"></canvas>
+                <div class="loading-overlay" id="loading">
+                    <div class="spinner"></div>
+                    <div>AI Sedang Menganalisis APD...</div>
+                </div>
+            </div>
+            <div class="camera-controls">
+                <button class="btn-capture" id="btn-capture">📸 Ambil Gambar & Cek APD</button>
+                <button class="btn-retake" id="btn-retake">🔄 Ulangi Foto</button>
+            </div>
+        </div>
+
+        <!-- Data Teknisi & Checklist -->
+        <div class="card">
+            <div class="form-group">
+                <label for="technician">Data Teknisi / Tim FS:</label>
+                <select id="technician">
+                    <option value="" disabled selected>-- Pilih Anggota Tim --</option>
+                    <option value="T001">Budi Santoso - Tim Jaringan Fiber</option>
+                    <option value="T002">Agus Pratama - Maintenance</option>
+                </select>
+            </div>
+
+            <h3 style="border-bottom: 2px solid var(--pln-yellow); padding-bottom: 5px;">Hasil Deteksi APD</h3>
+            
+            <div class="checklist">
+                <div class="check-item" id="item-helmet">
+                    <span>Helm Safety</span>
+                    <span class="status-badge" id="status-helmet">Belum Terdeteksi</span>
+                </div>
+                <div class="check-item" id="item-vest">
+                    <span>Rompi Safety</span>
+                    <span class="status-badge" id="status-vest">Belum Terdeteksi</span>
+                </div>
+                <div class="check-item" id="item-lanyard">
+                    <span>Lanyard / Body Harness</span>
+                    <span class="status-badge" id="status-lanyard">Belum Terdeteksi</span>
+                </div>
+                <div class="check-item" id="item-shoes">
+                    <span>Sepatu Boots / Safety</span>
+                    <span class="status-badge" id="status-shoes">Belum Terdeteksi</span>
+                </div>
+            </div>
+
+            <button class="btn-submit" id="btn-approve" disabled>✔️ Berikan Izin Keberangkatan</button>
+        </div>
+    </div>
+
+    <script>
+        // --- LOGIKA DEV MODE (TRAINING DATA) ---
+        const btnDev = document.getElementById('btn-dev');
+        const devPanel = document.getElementById('dev-panel');
+        const devFilesInput = document.getElementById('dev-files');
+        const fileInfo = document.getElementById('file-info');
+        const btnUploadDev = document.getElementById('btn-upload-dev');
+
+        // Toggle sembunyikan/tampilkan panel dev
+        btnDev.addEventListener('click', () => {
+            if (devPanel.style.display === 'none' || devPanel.style.display === '') {
+                devPanel.style.display = 'block';
+            } else {
+                devPanel.style.display = 'none';
+            }
+        });
+
+        // Tampilkan jumlah file yang dipilih
+        devFilesInput.addEventListener('change', (e) => {
+            const fileCount = e.target.files.length;
+            if (fileCount > 0) {
+                fileInfo.innerText = `${fileCount} foto siap diunggah.`;
+                fileInfo.style.color = '#f1c40f'; // Warna kuning
+            } else {
+                fileInfo.innerText = 'Belum ada file dipilih.';
+                fileInfo.style.color = '#bdc3c7';
+            }
+        });
+
+        // Simulasi Upload Dataset
+        btnUploadDev.addEventListener('click', () => {
+            const files = devFilesInput.files;
+            const label = document.getElementById('dev-label').value;
+            
+            if (files.length === 0) {
+                alert("Pilih foto terlebih dahulu sebelum mengunggah!");
+                return;
+            }
+
+            // Simulasi proses upload (di sinilah API / FormData digunakan nantinya)
+            const originalText = btnUploadDev.innerText;
+            btnUploadDev.innerText = "Mengunggah...";
+            btnUploadDev.disabled = true;
+
+            setTimeout(() => {
+                alert(`BERHASIL: ${files.length} foto telah diunggah ke folder dataset server untuk kategori '${label.toUpperCase()}'.`);
+                // Reset form
+                devFilesInput.value = "";
+                fileInfo.innerText = 'Belum ada file dipilih.';
+                fileInfo.style.color = '#bdc3c7';
+                btnUploadDev.innerText = originalText;
+                btnUploadDev.disabled = false;
+            }, 1500);
+        });
+
+        // --- (KODE KAMERA DAN PENGAMBILAN GAMBAR TETAP SAMA SEPERTI SEBELUMNYA) ---
+        
+        // Jaringan
+        function updateNetwork() {
+            const ind = document.getElementById('network-indicator');
+            const txt = document.getElementById('network-text');
+            if(navigator.onLine) { ind.className = 'network-indicator online'; txt.innerText = 'Internet Terhubung'; } 
+            else { ind.className = 'network-indicator offline'; txt.innerText = 'Koneksi Terputus'; }
+        }
+        window.addEventListener('online', updateNetwork);
+        window.addEventListener('offline', updateNetwork);
+        updateNetwork();
+
+        // Kamera
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('snapshot');
+        const ctx = canvas.getContext('2d');
+        const btnCapture = document.getElementById('btn-capture');
+        const btnRetake = document.getElementById('btn-retake');
+        const loadingOverlay = document.getElementById('loading');
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => { console.error(err); });
+
+        // Logika Capture Utama (Production)
+        btnCapture.addEventListener('click', () => {
+            const tech = document.getElementById('technician').value;
+            if (!tech) { alert("Pilih Data Teknisi dulu!"); return; }
+
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            video.style.display = 'none'; canvas.style.display = 'block';
+            btnCapture.style.display = 'none'; btnRetake.style.display = 'block';
+            loadingOverlay.style.display = 'flex';
+            
+            setTimeout(() => { processAIDetection(canvas.width, canvas.height); }, 2000);
+        });
+
+        btnRetake.addEventListener('click', () => {
+            video.style.display = 'block'; canvas.style.display = 'none';
+            btnCapture.style.display = 'block'; btnRetake.style.display = 'none';
+            ['helmet', 'vest', 'lanyard', 'shoes'].forEach(item => {
+                document.getElementById(`item-${item}`).classList.remove('detected');
+                document.getElementById(`status-${item}`).innerText = "Belum Terdeteksi";
+            });
+            document.getElementById('btn-approve').disabled = true;
+        });
+
+        function processAIDetection(width, height) {
+            loadingOverlay.style.display = 'none';
+            const aiDetections = [
+                { class: 'Helm Safety', conf: 98, color: '#FFF200', x: width*0.4, y: height*0.1, w: width*0.2, h: height*0.2 },
+                { class: 'Rompi', conf: 95, color: '#00A2E9', x: width*0.3, y: height*0.35, w: width*0.4, h: height*0.3 },
+                { class: 'Lanyard', conf: 89, color: '#ED1C24', x: width*0.45, y: height*0.4, w: width*0.1, h: height*0.2 },
+                { class: 'Sepatu', conf: 92, color: '#1D5A73', x: width*0.35, y: height*0.8, w: width*0.3, h: height*0.15 }
+            ];
+            ctx.lineWidth = 4; ctx.font = "bold 18px Arial";
+            aiDetections.forEach(det => {
+                ctx.strokeStyle = det.color; ctx.strokeRect(det.x, det.y, det.w, det.h);
+                ctx.fillStyle = det.color; ctx.fillRect(det.x, det.y - 25, ctx.measureText(`${det.class}`).width + 50, 25);
+                ctx.fillStyle = (det.color === '#FFF200') ? '#000' : '#FFF'; ctx.fillText(`${det.class} ${det.conf}%`, det.x + 5, det.y - 6);
+            });
+            ['helmet', 'vest', 'lanyard', 'shoes'].forEach(item => {
+                document.getElementById(`item-${item}`).classList.add('detected');
+                document.getElementById(`status-${item}`).innerText = "Telah Dipakai ✓";
+            });
+            document.getElementById('btn-approve').disabled = false;
+        }
+
+        document.getElementById('btn-approve').addEventListener('click', () => {
+            alert("Izin diberikan!"); btnRetake.click();
+        });
+    </script>
+</body>
+</html>
