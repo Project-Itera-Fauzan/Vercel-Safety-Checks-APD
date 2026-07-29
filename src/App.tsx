@@ -107,6 +107,7 @@ function CameraView({
 }) {
   const [status, setStatus] = useState<ApdStatus>("idle");
   const [techId, setTechId] = useState("");
+  const [manualName, setManualName] = useState("");
   const [location, setLocation] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -170,6 +171,10 @@ function CameraView({
   const startScan = useCallback(async () => {
     if (!techId) {
       alert("Pilih Anggota terlebih dahulu.");
+      return;
+    }
+    if (techId === "__manual__" && !manualName.trim()) {
+      alert("Isi nama anggota secara manual terlebih dahulu.");
       return;
     }
     if (!location.trim()) {
@@ -242,14 +247,17 @@ function CameraView({
         }
       }
 
-      const techName = TECHNICIANS.find((t) => t.id === techId)?.name ?? techId;
+      const techName =
+        techId === "__manual__"
+          ? manualName.trim()
+          : TECHNICIANS.find((t) => t.id === techId)?.name ?? techId;
       setStatus("done");
       onDetect(result, confidences, techName, location.trim(), dataUrl);
     } catch (err) {
       setScanError(err instanceof Error ? err.message : "Gagal memproses deteksi. Coba lagi.");
       setStatus("idle");
     }
-  }, [techId, location, captureFrameAsBlob, onDetect]);
+  }, [techId, manualName, location, captureFrameAsBlob, onDetect]);
 
   const reset = useCallback(() => {
     setStatus("idle");
@@ -277,7 +285,18 @@ function CameraView({
               {t.name}
             </option>
           ))}
+          <option value="__manual__">✎ Isi Manual...</option>
         </select>
+        {techId === "__manual__" && (
+          <input
+            type="text"
+            value={manualName}
+            onChange={(e) => setManualName(e.target.value)}
+            disabled={status !== "idle"}
+            placeholder="Ketik nama anggota tim"
+            className="mt-2 w-full bg-[#0d2218] border border-[#1a4030] text-[#e8f0f5] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+          />
+        )}
       </div>
 
       {/* Location input */}
@@ -431,7 +450,7 @@ function ApdChecklist({
 }: {
   result: DetectionResult;
   confidences: Record<ApdItem, number>;
-  onApprove: () => void;
+  onApprove: (overrideApproved?: boolean) => void;
   canApprove: boolean;
 }) {
   const detectedCount = APD_ITEMS.filter((item) => result[item.key]).length;
@@ -572,24 +591,50 @@ function ApdChecklist({
         );
       })}
 
-      {/* Approval button */}
-      <button
-        onClick={onApprove}
-        disabled={!canApprove}
-        className={`mt-2 w-full py-4 rounded-xl font-bold text-sm tracking-widest transition-all active:scale-95
-          ${canApprove
-            ? allDetected
+      {/* Tombol keputusan */}
+      {allDetected ? (
+        <button
+          onClick={() => onApprove()}
+          disabled={!canApprove}
+          className={`mt-2 w-full py-4 rounded-xl font-bold text-sm tracking-widest transition-all active:scale-95
+            ${canApprove
               ? "bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
-              : "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20"
-            : "bg-[#0d2218] text-[#1a4030] border border-[#1a4030] cursor-not-allowed"
-          }`}
-      >
-        {allDetected && canApprove
-          ? "✔ BERIKAN IZIN KEBERANGKATAN"
-          : canApprove && !allDetected
-          ? "⚠ APD TIDAK LENGKAP — KIRIM SEBAGAI DITOLAK"
-          : "Lakukan Pengecekan Terlebih Dahulu"}
-      </button>
+              : "bg-[#0d2218] text-[#1a4030] border border-[#1a4030] cursor-not-allowed"
+            }`}
+        >
+          {canApprove ? "✔ BERIKAN IZIN KEBERANGKATAN" : "Lakukan Pengecekan Terlebih Dahulu"}
+        </button>
+      ) : (
+        <div className="mt-2 flex flex-col gap-2">
+          {canApprove && (
+            <p className="text-center text-[10px] font-mono text-[#3d7a50]">
+              APD belum lengkap terdeteksi. Petugas bisa menimpa keputusan otomatis di bawah ini.
+            </p>
+          )}
+          <button
+            onClick={() => onApprove(true)}
+            disabled={!canApprove}
+            className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-widest transition-all active:scale-95
+              ${canApprove
+                ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
+                : "bg-[#0d2218] text-[#1a4030] border border-[#1a4030] cursor-not-allowed"
+              }`}
+          >
+            ✔ APD TIDAK LENGKAP — KIRIM SEBAGAI DITERIMA
+          </button>
+          <button
+            onClick={() => onApprove(false)}
+            disabled={!canApprove}
+            className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-widest transition-all active:scale-95
+              ${canApprove
+                ? "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20"
+                : "bg-[#0d2218] text-[#1a4030] border border-[#1a4030] cursor-not-allowed"
+              }`}
+          >
+            ⚠ APD TIDAK LENGKAP — KIRIM SEBAGAI DITOLAK
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -971,10 +1016,11 @@ export default function App() {
     setHasScanned(false);
   }, []);
 
-  const handleApprove = useCallback(async () => {
+  const handleApprove = useCallback(async (overrideApproved?: boolean) => {
     setSaving(true);
     try {
       const isComplete = detection.helmet && detection.vest && detection.shoes;
+      const finalApproved = overrideApproved ?? isComplete;
       await saveChecklist({
         technician: lastTech,
         location: lastLocation,
@@ -985,10 +1031,13 @@ export default function App() {
         conf_vest: confidences.vest,
         conf_shoes: confidences.shoes,
         image: lastImage,
+        override_approved: overrideApproved,
       });
-      setApprovedCount((c) => c + (isComplete ? 1 : 0));
-      if (isComplete) {
+      setApprovedCount((c) => c + (finalApproved ? 1 : 0));
+      if (finalApproved && isComplete) {
         alert("✅ Izin Keberangkatan Diberikan!\n\nData telah dicatat ke sistem.");
+      } else if (finalApproved && !isComplete) {
+        alert("✅ Dikirim sebagai DITERIMA (override manual petugas).\n\nAPD tidak lengkap terdeteksi, namun keputusan petugas tetap dicatat sebagai izin diberikan.");
       } else {
         alert("⛔ Izin Ditolak — APD tidak lengkap.\n\nData tetap dicatat ke sistem sebagai penolakan.");
       }
