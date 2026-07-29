@@ -40,6 +40,7 @@ export interface ChecklistPayload {
   conf_vest: number;
   conf_shoes: number;
   image?: string;
+  override_approved?: boolean;
 }
 
 export interface ChecklistSaved {
